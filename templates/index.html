@@ -147,6 +147,72 @@
       padding: 20px;
       font-size: 14px;
     }
+
+    /* ドラムロール */
+    .drum-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+    .drum-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+    }
+    .drum-label {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+    .drum-unit {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+    }
+    .drum-picker {
+      width: 100%;
+      height: 150px;
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+      -webkit-overflow-scrolling: touch;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      position: relative;
+      scrollbar-width: none;
+    }
+    .drum-picker::-webkit-scrollbar { display: none; }
+    .drum-picker::before,
+    .drum-picker::after {
+      content: '';
+      display: block;
+      height: 60px;
+    }
+    .drum-item {
+      height: 30px;
+      line-height: 30px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      scroll-snap-align: center;
+      color: #ccc;
+      transition: color 0.15s;
+      cursor: pointer;
+    }
+    .drum-item.selected { color: #e8526a; }
+    .drum-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      background: linear-gradient(
+        to bottom,
+        rgba(255,255,255,0.85) 0%,
+        rgba(255,255,255,0) 35%,
+        rgba(255,255,255,0) 65%,
+        rgba(255,255,255,0.85) 100%
+      );
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
@@ -170,7 +236,23 @@
       </div>
       <div class="form-group">
         <label>実寸 <span class="required">*</span></label>
-        <input type="text" id="measurements" placeholder="例：肩幅43 身幅50 着丈65">
+        <div class="drum-row">
+          <div class="drum-wrap">
+            <div class="drum-label">肩幅</div>
+            <div class="drum-picker" id="drum-kata"></div>
+            <div class="drum-unit">cm</div>
+          </div>
+          <div class="drum-wrap">
+            <div class="drum-label">身幅</div>
+            <div class="drum-picker" id="drum-mi"></div>
+            <div class="drum-unit">cm</div>
+          </div>
+          <div class="drum-wrap">
+            <div class="drum-label">着丈</div>
+            <div class="drum-picker" id="drum-ki"></div>
+            <div class="drum-unit">cm</div>
+          </div>
+        </div>
       </div>
       <div class="form-group">
         <label>色 <span class="required">*</span></label>
@@ -231,8 +313,49 @@
   </div>
 
   <script>
+    // ── ドラムロール初期化 ──
+    function initDrum(id, min, max, defaultVal) {
+      const el = document.getElementById(id);
+      for (let i = min; i <= max; i++) {
+        const div = document.createElement('div');
+        div.className = 'drum-item';
+        div.textContent = i;
+        el.appendChild(div);
+      }
+      const overlay = document.createElement('div');
+      overlay.className = 'drum-overlay';
+      el.parentElement.appendChild(overlay);
+
+      // 初期値にスクロール
+      const itemH = 30;
+      el.scrollTop = (defaultVal - min) * itemH;
+      updateSelected(el, min);
+
+      el.addEventListener('scroll', () => updateSelected(el, min), { passive: true });
+    }
+
+    function updateSelected(el, min) {
+      const itemH = 30;
+      const idx = Math.round(el.scrollTop / itemH);
+      el.querySelectorAll('.drum-item').forEach((item, i) => {
+        item.classList.toggle('selected', i === idx);
+      });
+    }
+
+    function getDrumValue(id, min) {
+      const el = document.getElementById(id);
+      return min + Math.round(el.scrollTop / 30);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initDrum('drum-kata', 30, 65, 43);
+      initDrum('drum-mi',  35, 75, 50);
+      initDrum('drum-ki',  40, 90, 65);
+    });
+
+    // ── フォーム送信 ──
     async function generate() {
-      const required = ['brand', 'item', 'size', 'measurements', 'color', 'condition'];
+      const required = ['brand', 'item', 'size', 'color', 'condition'];
       for (const id of required) {
         if (!document.getElementById(id).value.trim()) {
           alert('※ 必須項目をすべて入力してください。');
@@ -241,11 +364,16 @@
         }
       }
 
+      const kata = getDrumValue('drum-kata', 30);
+      const mi   = getDrumValue('drum-mi', 35);
+      const ki   = getDrumValue('drum-ki', 40);
+      const measurements = `肩幅${kata} 身幅${mi} 着丈${ki}`;
+
       const info = {
         brand:        document.getElementById('brand').value,
         item:         document.getElementById('item').value,
         size:         document.getElementById('size').value,
-        measurements: document.getElementById('measurements').value,
+        measurements: measurements,
         color:        document.getElementById('color').value,
         condition:    document.getElementById('condition').value,
         material:     document.getElementById('material').value,
