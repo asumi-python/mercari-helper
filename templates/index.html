@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>メルカリ出品サポート</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Hiragino Sans', 'Meiryo', sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 22px;
+      margin-bottom: 24px;
+      color: #e8526a;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: bold;
+      color: #e8526a;
+      margin-bottom: 14px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #f5e6e9;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    label .required {
+      color: #e8526a;
+      margin-left: 4px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 15px;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #e8526a;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      background: #e8526a;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn:hover { background: #d44460; }
+    .btn:disabled { background: #ccc; cursor: not-allowed; }
+
+    .btn-reset {
+      width: 100%;
+      padding: 12px;
+      background: white;
+      color: #e8526a;
+      border: 2px solid #e8526a;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 12px;
+      transition: all 0.2s;
+    }
+
+    .btn-reset:hover { background: #fdf0f2; }
+
+    #result-card { display: none; }
+
+    .result-block {
+      margin-bottom: 20px;
+    }
+
+    .result-label {
+      font-size: 13px;
+      font-weight: bold;
+      color: #e8526a;
+      margin-bottom: 6px;
+    }
+
+    .result-text {
+      background: #fdf5f6;
+      border: 1px solid #f0d5da;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 14px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+
+    .copy-btn {
+      margin-top: 6px;
+      padding: 6px 14px;
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .copy-btn:hover { background: #eee; }
+
+    #loading {
+      display: none;
+      text-align: center;
+      color: #999;
+      padding: 20px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🛍️ メルカリ出品サポート</h1>
+
+    <div class="card" id="form-card">
+      <div class="section-title">必須情報</div>
+
+      <div class="form-group">
+        <label>ブランド名 <span class="required">*</span></label>
+        <input type="text" id="brand" placeholder="例：ユニクロ、ZARA">
+      </div>
+      <div class="form-group">
+        <label>アイテム <span class="required">*</span></label>
+        <input type="text" id="item" placeholder="例：Tシャツ、パンツ、ニット">
+      </div>
+      <div class="form-group">
+        <label>サイズ表記 <span class="required">*</span></label>
+        <input type="text" id="size" placeholder="例：M、L、38">
+      </div>
+      <div class="form-group">
+        <label>実寸 <span class="required">*</span></label>
+        <input type="text" id="measurements" placeholder="例：肩幅43 身幅50 着丈65">
+      </div>
+      <div class="form-group">
+        <label>色 <span class="required">*</span></label>
+        <input type="text" id="color" placeholder="例：ネイビー、ホワイト">
+      </div>
+      <div class="form-group">
+        <label>状態 <span class="required">*</span></label>
+        <input type="text" id="condition" placeholder="例：未使用、良い、やや使用感あり">
+      </div>
+
+      <div class="section-title" style="margin-top:20px;">任意情報（あれば入力）</div>
+
+      <div class="form-group">
+        <label>素材</label>
+        <input type="text" id="material" placeholder="例：綿100%、ポリエステル">
+      </div>
+      <div class="form-group">
+        <label>購入時期</label>
+        <input type="text" id="purchased" placeholder="例：2年前、去年">
+      </div>
+      <div class="form-group">
+        <label>使用回数</label>
+        <input type="text" id="usage" placeholder="例：3回、ほぼ未使用">
+      </div>
+      <div class="form-group">
+        <label>購入場所</label>
+        <input type="text" id="place" placeholder="例：公式サイト、百貨店">
+      </div>
+
+      <button class="btn" onclick="generate()">✨ 説明文を生成する</button>
+    </div>
+
+    <div id="loading">生成中です。少々お待ちください...</div>
+
+    <div class="card" id="result-card">
+      <div class="section-title">生成結果</div>
+
+      <div class="result-block">
+        <div class="result-label">📌 タイトル</div>
+        <div class="result-text" id="out-title"></div>
+        <button class="copy-btn" onclick="copy('out-title')">コピー</button>
+      </div>
+
+      <div class="result-block">
+        <div class="result-label">📝 説明文</div>
+        <div class="result-text" id="out-desc"></div>
+        <button class="copy-btn" onclick="copy('out-desc')">コピー</button>
+      </div>
+
+      <div class="result-block">
+        <div class="result-label">🔖 ハッシュタグ</div>
+        <div class="result-text" id="out-tags"></div>
+        <button class="copy-btn" onclick="copy('out-tags')">コピー</button>
+      </div>
+
+      <button class="btn-reset" onclick="reset()">🔄 もう一度入力する</button>
+    </div>
+  </div>
+
+  <script>
+    async function generate() {
+      const required = ['brand', 'item', 'size', 'measurements', 'color', 'condition'];
+      for (const id of required) {
+        if (!document.getElementById(id).value.trim()) {
+          alert('※ 必須項目をすべて入力してください。');
+          document.getElementById(id).focus();
+          return;
+        }
+      }
+
+      const info = {
+        brand:        document.getElementById('brand').value,
+        item:         document.getElementById('item').value,
+        size:         document.getElementById('size').value,
+        measurements: document.getElementById('measurements').value,
+        color:        document.getElementById('color').value,
+        condition:    document.getElementById('condition').value,
+        material:     document.getElementById('material').value,
+        purchased:    document.getElementById('purchased').value,
+        usage:        document.getElementById('usage').value,
+        place:        document.getElementById('place').value,
+      };
+
+      document.querySelector('.btn').disabled = true;
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('result-card').style.display = 'none';
+
+      const res = await fetch('/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(info)
+      });
+      const data = await res.json();
+
+      document.getElementById('loading').style.display = 'none';
+      document.querySelector('.btn').disabled = false;
+
+      const text = data.result;
+      document.getElementById('out-title').textContent = extract(text, 'タイトル');
+      document.getElementById('out-desc').textContent = extract(text, '説明文');
+      document.getElementById('out-tags').textContent = extract(text, 'ハッシュタグ');
+
+      document.getElementById('result-card').style.display = 'block';
+      document.getElementById('result-card').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function extract(text, section) {
+      const regex = new RegExp(`【${section}】\\s*([\\s\\S]*?)(?=\\n【|$)`);
+      const match = text.match(regex);
+      if (!match) return '';
+      return match[1].replace(/^\(.*?\)\s*/s, '').trim();
+    }
+
+    function copy(id) {
+      const text = document.getElementById(id).textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        btn.textContent = 'コピーしました！';
+        setTimeout(() => btn.textContent = 'コピー', 2000);
+      });
+    }
+
+    function reset() {
+      document.getElementById('result-card').style.display = 'none';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  </script>
+</body>
+</html>
