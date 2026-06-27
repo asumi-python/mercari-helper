@@ -321,18 +321,6 @@
         <label>素材</label>
         <input type="text" id="material" placeholder="例：綿100%、ポリエステル">
       </div>
-      <div class="form-group">
-        <label>購入時期</label>
-        <input type="text" id="purchased" placeholder="例：2年前、去年">
-      </div>
-      <div class="form-group">
-        <label>使用回数</label>
-        <input type="text" id="usage" placeholder="例：3回、ほぼ未使用">
-      </div>
-      <div class="form-group">
-        <label>購入場所</label>
-        <input type="text" id="place" placeholder="例：公式サイト、百貨店">
-      </div>
 
       <button class="btn" onclick="generate()">✨ 説明文を生成する</button>
     </div>
@@ -454,9 +442,6 @@
         color:        document.getElementById('color').value,
         condition:    document.getElementById('condition').value,
         material:     document.getElementById('material').value,
-        purchased:    document.getElementById('purchased').value,
-        usage:        document.getElementById('usage').value,
-        place:        document.getElementById('place').value,
       };
 
       document.querySelector('.btn').disabled = true;

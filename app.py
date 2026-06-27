@@ -21,9 +21,6 @@ def generate_description(info):
 色：{info['color']}
 状態：{info['condition']}
 素材：{info.get('material') or '不明'}
-購入時期：{info.get('purchased') or '不明'}
-使用回数：{info.get('usage') or '不明'}
-購入場所：{info.get('place') or '不明'}
 
 【出力形式】必ず以下の形式で出力してください。
 
