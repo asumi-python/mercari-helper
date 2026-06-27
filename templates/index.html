@@ -254,6 +254,23 @@
             <div class="drum-unit">cm</div>
           </div>
         </div>
+        <div class="drum-row" style="margin-top:10px;">
+          <div class="drum-wrap">
+            <div class="drum-label">袖丈</div>
+            <div class="drum-picker" id="drum-sode"></div>
+            <div class="drum-unit">cm</div>
+          </div>
+          <div class="drum-wrap">
+            <div class="drum-label">ウエスト</div>
+            <div class="drum-picker" id="drum-waist"></div>
+            <div class="drum-unit">cm</div>
+          </div>
+          <div class="drum-wrap">
+            <div class="drum-label">ヒップ</div>
+            <div class="drum-picker" id="drum-hip"></div>
+            <div class="drum-unit">cm</div>
+          </div>
+        </div>
       </div>
       <div class="form-group">
         <label>色 <span class="required">*</span></label>
@@ -349,9 +366,12 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      initDrum('drum-kata', 30, 65, 43);
-      initDrum('drum-mi',  35, 75, 50);
-      initDrum('drum-ki',  40, 90, 65);
+      initDrum('drum-kata',  30, 65, 43);
+      initDrum('drum-mi',   35, 75, 50);
+      initDrum('drum-ki',   40, 90, 65);
+      initDrum('drum-sode', 50, 70, 58);
+      initDrum('drum-waist',60,100, 72);
+      initDrum('drum-hip',  70,110, 88);
     });
 
     // ── フォーム送信 ──
@@ -365,10 +385,13 @@
         }
       }
 
-      const kata = getDrumValue('drum-kata', 30);
-      const mi   = getDrumValue('drum-mi', 35);
-      const ki   = getDrumValue('drum-ki', 40);
-      const measurements = `肩幅${kata} 身幅${mi} 着丈${ki}`;
+      const kata  = getDrumValue('drum-kata',  30);
+      const mi    = getDrumValue('drum-mi',   35);
+      const ki    = getDrumValue('drum-ki',   40);
+      const sode  = getDrumValue('drum-sode', 50);
+      const waist = getDrumValue('drum-waist',60);
+      const hip   = getDrumValue('drum-hip',  70);
+      const measurements = `肩幅${kata} 身幅${mi} 着丈${ki} 袖丈${sode} ウエスト${waist} ヒップ${hip}`;
 
       const info = {
         brand:        document.getElementById('brand').value,
