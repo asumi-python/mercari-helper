@@ -251,7 +251,25 @@
       </div>
       <div class="form-group">
         <label>アイテム <span class="required">*</span></label>
-        <input type="text" id="item" placeholder="例：Tシャツ、パンツ、ニット">
+        <div class="size-buttons" id="item-buttons">
+          <button type="button" class="size-btn" onclick="selectItem(this)">Tシャツ</button>
+          <button type="button" class="size-btn" onclick="selectItem(this)">ブラウス</button>
+          <button type="button" class="size-btn" onclick="selectItem(this)">トップス</button>
+          <button type="button" class="size-btn" onclick="selectItem(this)">ニット</button>
+          <button type="button" class="size-btn" onclick="selectItem(this)">カーディガン</button>
+          <button type="button" class="size-btn" onclick="selectItem(this)">スエット</button>
+          <button type="button" class="size-btn" onclick="selectItem(this)">ノースリーブ</button>
+          <button type="button" class="size-btn" onclick="selectItem(this)">ジャケット</button>
+          <button type="button" class="size-btn" onclick="selectItem(this)">アウター</button>
+          <button type="button" class="size-btn" onclick="selectItem(this)">コート</button>
+          <button type="button" class="size-btn" onclick="selectItem(this)">ワンピース</button>
+          <button type="button" class="size-btn" onclick="selectItem(this)">セットアップ</button>
+          <button type="button" class="size-btn" onclick="selectItem(this)">スカート</button>
+          <button type="button" class="size-btn" onclick="selectItem(this)">ボトムス</button>
+          <button type="button" class="size-btn" onclick="selectItem(this)">パンツ</button>
+          <button type="button" class="size-btn" onclick="selectItem(this)">デニム</button>
+        </div>
+        <input type="hidden" id="item">
       </div>
       <div class="form-group">
         <label>サイズ表記 <span class="required">*</span></label>
@@ -271,7 +289,7 @@
       </div>
       <div class="form-group">
         <label>実寸 <span class="required">*</span></label>
-        <div class="drum-row">
+        <div id="drums-top" class="drum-row" style="display:none;">
           <div class="drum-wrap">
             <div class="drum-label">肩幅</div>
             <div class="drum-picker" id="drum-kata"></div>
@@ -284,16 +302,18 @@
           </div>
           <div class="drum-wrap">
             <div class="drum-label">着丈</div>
-            <div class="drum-picker" id="drum-ki"></div>
+            <div class="drum-picker" id="drum-ki-top"></div>
             <div class="drum-unit">cm</div>
           </div>
         </div>
-        <div class="drum-row" style="margin-top:10px;">
+        <div id="drums-sleeve" class="drum-row" style="display:none; margin-top:10px;">
           <div class="drum-wrap">
             <div class="drum-label">袖丈</div>
             <div class="drum-picker" id="drum-sode"></div>
             <div class="drum-unit">cm</div>
           </div>
+        </div>
+        <div id="drums-bottom" class="drum-row" style="display:none; margin-top:10px;">
           <div class="drum-wrap">
             <div class="drum-label">ウエスト</div>
             <div class="drum-picker" id="drum-waist"></div>
@@ -302,6 +322,11 @@
           <div class="drum-wrap">
             <div class="drum-label">ヒップ</div>
             <div class="drum-picker" id="drum-hip"></div>
+            <div class="drum-unit">cm</div>
+          </div>
+          <div class="drum-wrap">
+            <div class="drum-label">着丈</div>
+            <div class="drum-picker" id="drum-ki-btm"></div>
             <div class="drum-unit">cm</div>
           </div>
         </div>
@@ -371,6 +396,40 @@
   </div>
 
   <script>
+    // ── アイテム選択・実寸表示切り替え ──
+    const ITEM_GROUPS = {
+      top_only:   ['Tシャツ', 'トップス', 'ノースリーブ'],
+      top_sleeve: ['ブラウス', 'ニット', 'カーディガン', 'スエット'],
+      outer:      ['ジャケット', 'アウター', 'コート'],
+      bottom:     ['スカート', 'ボトムス', 'パンツ', 'デニム'],
+      one_piece:  ['ワンピース', 'セットアップ'],
+    };
+
+    function getItemGroup(item) {
+      for (const [group, items] of Object.entries(ITEM_GROUPS)) {
+        if (items.includes(item)) return group;
+      }
+      return null;
+    }
+
+    function selectItem(btn) {
+      document.querySelectorAll('#item-buttons .size-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const item = btn.textContent;
+      document.getElementById('item').value = item;
+      updateDrums(getItemGroup(item));
+    }
+
+    function updateDrums(group) {
+      const showTop    = ['top_only', 'top_sleeve', 'outer', 'one_piece'].includes(group);
+      const showSleeve = ['top_sleeve', 'outer'].includes(group);
+      const showBottom = ['bottom', 'one_piece'].includes(group);
+
+      document.getElementById('drums-top').style.display    = showTop    ? 'flex' : 'none';
+      document.getElementById('drums-sleeve').style.display = showSleeve ? 'flex' : 'none';
+      document.getElementById('drums-bottom').style.display = showBottom ? 'flex' : 'none';
+    }
+
     // ── 状態選択 ──
     function selectCondition(btn) {
       document.querySelectorAll('#form-card .size-btn[onclick="selectCondition(this)"]')
@@ -456,32 +515,41 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      initDrum('drum-kata',  30, 65, 43);
-      initDrum('drum-mi',   35, 75, 50);
-      initDrum('drum-ki',   40, 90, 65);
-      initDrum('drum-sode', 50, 70, 58);
-      initDrum('drum-waist',60,100, 72);
-      initDrum('drum-hip',  70,110, 88);
+      initDrum('drum-kata',   30,  65, 43);
+      initDrum('drum-mi',     35,  75, 50);
+      initDrum('drum-ki-top', 40,  90, 65);
+      initDrum('drum-sode',   50,  70, 58);
+      initDrum('drum-waist',  60, 100, 72);
+      initDrum('drum-hip',    70, 110, 88);
+      initDrum('drum-ki-btm', 40,  90, 70);
+      document.getElementById('material-other').addEventListener('input', updateMaterialValue);
     });
 
     // ── フォーム送信 ──
     async function generate() {
-      const required = ['brand', 'item', 'size', 'color', 'condition'];
-      for (const id of required) {
-        if (!document.getElementById(id).value.trim()) {
-          alert('※ 必須項目をすべて入力してください。');
-          document.getElementById(id).focus();
-          return;
-        }
-      }
+      if (!document.getElementById('brand').value.trim()) { alert('※ ブランド名を入力してください。'); return; }
+      if (!document.getElementById('item').value) { alert('※ アイテムを選択してください。'); return; }
+      if (!document.getElementById('size').value) { alert('※ サイズ表記を選択してください。'); return; }
+      if (!document.getElementById('color').value.trim()) { alert('※ 色を入力してください。'); return; }
+      if (!document.getElementById('condition').value) { alert('※ 状態を選択してください。'); return; }
 
-      const kata  = getDrumValue('drum-kata',  30);
-      const mi    = getDrumValue('drum-mi',   35);
-      const ki    = getDrumValue('drum-ki',   40);
-      const sode  = getDrumValue('drum-sode', 50);
-      const waist = getDrumValue('drum-waist',60);
-      const hip   = getDrumValue('drum-hip',  70);
-      const measurements = `肩幅${kata} 身幅${mi} 着丈${ki} 袖丈${sode} ウエスト${waist} ヒップ${hip}`;
+      const item = document.getElementById('item').value;
+      const group = getItemGroup(item);
+      const parts = [];
+      if (['top_only','top_sleeve','outer','one_piece'].includes(group)) {
+        parts.push(`肩幅${getDrumValue('drum-kata', 30)}`);
+        parts.push(`身幅${getDrumValue('drum-mi', 35)}`);
+        parts.push(`着丈${getDrumValue('drum-ki-top', 40)}`);
+      }
+      if (['top_sleeve','outer'].includes(group)) {
+        parts.push(`袖丈${getDrumValue('drum-sode', 50)}`);
+      }
+      if (['bottom','one_piece'].includes(group)) {
+        parts.push(`ウエスト${getDrumValue('drum-waist', 60)}`);
+        parts.push(`ヒップ${getDrumValue('drum-hip', 70)}`);
+        parts.push(`着丈${getDrumValue('drum-ki-btm', 40)}`);
+      }
+      const measurements = parts.join(' ');
 
       const info = {
         brand:        document.getElementById('brand').value,
