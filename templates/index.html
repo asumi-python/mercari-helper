@@ -148,6 +148,28 @@
       font-size: 14px;
     }
 
+    /* サイズボタン */
+    .size-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .size-btn {
+      padding: 8px 14px;
+      border: 2px solid #ddd;
+      border-radius: 20px;
+      background: white;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .size-btn.active {
+      border-color: #e8526a;
+      background: #e8526a;
+      color: white;
+      font-weight: bold;
+    }
+
     /* ドラムロール */
     .drum-row {
       display: flex;
@@ -233,7 +255,19 @@
       </div>
       <div class="form-group">
         <label>サイズ表記 <span class="required">*</span></label>
-        <input type="text" id="size" placeholder="例：M、L、38">
+        <div class="size-buttons">
+          <button type="button" class="size-btn" onclick="selectSize(this)">XS</button>
+          <button type="button" class="size-btn" onclick="selectSize(this)">S</button>
+          <button type="button" class="size-btn" onclick="selectSize(this)">M</button>
+          <button type="button" class="size-btn" onclick="selectSize(this)">L</button>
+          <button type="button" class="size-btn" onclick="selectSize(this)">XL</button>
+          <button type="button" class="size-btn" onclick="selectSize(this)">XXL</button>
+          <button type="button" class="size-btn" onclick="selectSize(this)">FREE</button>
+          <button type="button" class="size-btn" onclick="selectSize(this)">その他</button>
+        </div>
+        <input type="text" id="size-other" placeholder="サイズを入力（例：38、160cm）"
+               style="display:none; margin-top:8px;">
+        <input type="hidden" id="size">
       </div>
       <div class="form-group">
         <label>実寸 <span class="required">*</span></label>
@@ -331,6 +365,25 @@
   </div>
 
   <script>
+    // ── サイズ選択 ──
+    function selectSize(btn) {
+      document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const val = btn.textContent;
+      if (val === 'その他') {
+        document.getElementById('size-other').style.display = 'block';
+        document.getElementById('size').value = '';
+      } else {
+        document.getElementById('size-other').style.display = 'none';
+        document.getElementById('size').value = val;
+      }
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('size-other').addEventListener('input', function() {
+        document.getElementById('size').value = this.value;
+      });
+    });
+
     // ── ドラムロール初期化 ──
     function initDrum(id, min, max, defaultVal) {
       const el = document.getElementById(id);
