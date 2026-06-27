@@ -312,14 +312,32 @@
       </div>
       <div class="form-group">
         <label>状態 <span class="required">*</span></label>
-        <input type="text" id="condition" placeholder="例：未使用、良い、やや使用感あり">
+        <div class="size-buttons">
+          <button type="button" class="size-btn" onclick="selectCondition(this)">未使用・新品</button>
+          <button type="button" class="size-btn" onclick="selectCondition(this)">ほぼ未使用</button>
+          <button type="button" class="size-btn" onclick="selectCondition(this)">目立った傷なし</button>
+          <button type="button" class="size-btn" onclick="selectCondition(this)">やや傷・汚れあり</button>
+          <button type="button" class="size-btn" onclick="selectCondition(this)">傷・汚れあり</button>
+        </div>
+        <input type="hidden" id="condition">
       </div>
 
       <div class="section-title" style="margin-top:20px;">任意情報（あれば入力）</div>
 
       <div class="form-group">
-        <label>素材</label>
-        <input type="text" id="material" placeholder="例：綿100%、ポリエステル">
+        <label>素材（複数選択OK）</label>
+        <div class="size-buttons" id="material-buttons">
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">綿</button>
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">ポリエステル</button>
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">ナイロン</button>
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">ウール</button>
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">シルク</button>
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">リネン</button>
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">レーヨン</button>
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">その他</button>
+        </div>
+        <input type="text" id="material-other" placeholder="素材を入力" style="display:none; margin-top:8px;">
+        <input type="hidden" id="material">
       </div>
 
       <button class="btn" onclick="generate()">✨ 説明文を生成する</button>
@@ -353,6 +371,37 @@
   </div>
 
   <script>
+    // ── 状態選択 ──
+    function selectCondition(btn) {
+      document.querySelectorAll('#form-card .size-btn[onclick="selectCondition(this)"]')
+        .forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('condition').value = btn.textContent;
+    }
+
+    // ── 素材選択（複数OK） ──
+    function toggleMaterial(btn) {
+      if (btn.textContent === 'その他') {
+        btn.classList.toggle('active');
+        const other = document.getElementById('material-other');
+        other.style.display = btn.classList.contains('active') ? 'block' : 'none';
+      } else {
+        btn.classList.toggle('active');
+      }
+      updateMaterialValue();
+    }
+    function updateMaterialValue() {
+      const selected = [...document.querySelectorAll('#material-buttons .size-btn.active')]
+        .filter(b => b.textContent !== 'その他')
+        .map(b => b.textContent);
+      const other = document.getElementById('material-other').value.trim();
+      if (other) selected.push(other);
+      document.getElementById('material').value = selected.join('・');
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('material-other').addEventListener('input', updateMaterialValue);
+    });
+
     // ── サイズ選択 ──
     function selectSize(btn) {
       document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
