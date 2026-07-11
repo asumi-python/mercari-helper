@@ -452,7 +452,16 @@
       <button class="btn" onclick="generate()">✨ 説明文を生成する</button>
     </div>
 
-    <div id="loading">生成中です。少々お待ちください...</div>
+    <div id="loading">
+      生成中です。少々お待ちください...<br>
+      <span style="font-size:12px; color:#bbb;">（初回アクセス直後は、サーバーが起動するまで30秒〜1分ほどかかることがあります）</span><br>
+      <button type="button" class="btn-reset" style="margin-top:10px; padding:8px 20px; width:auto;" onclick="cancelGenerate()">キャンセルする</button>
+    </div>
+
+    <div id="error-message" style="display:none; text-align:center; color:#e8526a; padding:16px; font-size:14px;">
+      うまく生成できませんでした。もう一度お試しください。<br>
+      <button type="button" class="btn" style="margin-top:10px; width:auto; padding:10px 24px;" onclick="generate()">🔄 もう一度試す</button>
+    </div>
 
     <div class="card" id="result-card">
       <div class="section-title">生成結果</div>
@@ -716,24 +725,49 @@
 
       document.querySelector('.btn').disabled = true;
       document.getElementById('loading').style.display = 'block';
+      document.getElementById('error-message').style.display = 'none';
       document.getElementById('result-card').style.display = 'none';
 
-      const res = await fetch('/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(info)
-      });
-      const data = await res.json();
+      currentAbortController = new AbortController();
+      const timeoutId = setTimeout(() => currentAbortController.abort(), 60000);
 
+      try {
+        const res = await fetch('/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(info),
+          signal: currentAbortController.signal
+        });
+        if (!res.ok) throw new Error('サーバーエラー: ' + res.status);
+        const data = await res.json();
+
+        document.getElementById('out-title').textContent = data.title;
+        document.getElementById('out-desc').textContent = data.description;
+        document.getElementById('out-tags').textContent = data.hashtags;
+
+        document.getElementById('result-card').style.display = 'block';
+        document.getElementById('result-card').scrollIntoView({ behavior: 'smooth' });
+      } catch (err) {
+        if (err.name !== 'AbortError' || !userCancelled) {
+          document.getElementById('error-message').style.display = 'block';
+        }
+      } finally {
+        clearTimeout(timeoutId);
+        currentAbortController = null;
+        userCancelled = false;
+        document.getElementById('loading').style.display = 'none';
+        document.querySelector('.btn').disabled = false;
+      }
+    }
+
+    let currentAbortController = null;
+    let userCancelled = false;
+
+    function cancelGenerate() {
+      userCancelled = true;
+      if (currentAbortController) currentAbortController.abort();
       document.getElementById('loading').style.display = 'none';
       document.querySelector('.btn').disabled = false;
-
-      document.getElementById('out-title').textContent = data.title;
-      document.getElementById('out-desc').textContent = data.description;
-      document.getElementById('out-tags').textContent = data.hashtags;
-
-      document.getElementById('result-card').style.display = 'block';
-      document.getElementById('result-card').scrollIntoView({ behavior: 'smooth' });
     }
 
     function copy(id) {
