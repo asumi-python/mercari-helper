@@ -84,8 +84,12 @@ def generate_description(info):
 【ハッシュタグ】
 （5〜8個。メルカリで検索されやすいものを選ぶ）
 """
-    response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
-    text = response.text
+    try:
+        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        text = response.text
+    except Exception as e:
+        print("Gemini APIエラー:", repr(e))
+        return {"error": repr(e)}
 
     title = extract_section(text, 'タイトル')
     appeal = extract_section(text, '説明文')
@@ -116,6 +120,8 @@ def generate():
     info = request.json
     print("受信データ:", info)
     result = generate_description(info)
+    if 'error' in result:
+        return jsonify(result), 502
     return jsonify(result)
 
 @app.route("/style", methods=["POST"])
