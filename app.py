@@ -89,7 +89,9 @@ def generate_description(info):
         text = response.text
     except Exception as e:
         print("Gemini APIエラー:", repr(e))
-        return {"error": repr(e)}
+        if '429' in str(e) or 'RESOURCE_EXHAUSTED' in str(e):
+            return {"error": "只今アクセスが集中しています。1分ほど待ってからもう一度お試しください。"}
+        return {"error": "生成に失敗しました。もう一度お試しください。"}
 
     title = extract_section(text, 'タイトル')
     appeal = extract_section(text, '説明文')
