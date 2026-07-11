@@ -607,7 +607,7 @@
 
     // ── サイズ選択 ──
     function selectSize(btn) {
-      document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.size-btn[onclick="selectSize(this)"]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const val = btn.textContent;
       if (val === 'その他') {
@@ -728,20 +728,12 @@
       document.getElementById('loading').style.display = 'none';
       document.querySelector('.btn').disabled = false;
 
-      const text = data.result;
-      document.getElementById('out-title').textContent = extract(text, 'タイトル');
-      document.getElementById('out-desc').textContent = extract(text, '説明文');
-      document.getElementById('out-tags').textContent = extract(text, 'ハッシュタグ');
+      document.getElementById('out-title').textContent = data.title;
+      document.getElementById('out-desc').textContent = data.description;
+      document.getElementById('out-tags').textContent = data.hashtags;
 
       document.getElementById('result-card').style.display = 'block';
       document.getElementById('result-card').scrollIntoView({ behavior: 'smooth' });
-    }
-
-    function extract(text, section) {
-      const regex = new RegExp(`【${section}】\\s*([\\s\\S]*?)(?=\\n【|$)`);
-      const match = text.match(regex);
-      if (!match) return '';
-      return match[1].replace(/^\(.*?\)\s*/s, '').trim();
     }
 
     function copy(id) {

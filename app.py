@@ -1,4 +1,5 @@
 import os
+import re
 from flask import Flask, render_template, request, jsonify
 from google import genai
 from dotenv import load_dotenv
@@ -7,6 +8,30 @@ load_dotenv()
 
 app = Flask(__name__)
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+DISCLAIMER = """★必ず以下を確認の上ご購入をよろしくお願いいたします
+・当店の商品は古着ですので、すべて″実寸サイズ″を基にサイズを記載しております。必ず実寸サイズをご確認の上ご購入ください。
+・写真は実物をスマホで撮影しております！
+・全商品厳選した一点物になります。
+・多少の汚れ・破れがあっても、目立っていなければ「目立った傷や汚れなし」として販売しております。
+
+◎ 古着にご理解ある方のみお求めください。
+◎ 匂いや細かなダメージなど、見落としがある場合がございます。
+◎ コンパクトに畳んで発送いたします。"""
+
+
+def format_measurements(measurements):
+    pairs = re.findall(r'([^\d\s：:]+)[：:]?(\d+)', measurements)
+    if not pairs:
+        return measurements
+    return '\n'.join(f'・{label}：約{num}cm' for label, num in pairs)
+
+
+def extract_section(text, section):
+    match = re.search(rf'【{re.escape(section)}】\s*([\s\S]*?)(?=\n【|$)', text)
+    if not match:
+        return ''
+    return re.sub(r'^\(.*?\)\s*', '', match.group(1).strip(), flags=re.S).strip()
 
 def analyze_style(query):
     prompt = f"""
@@ -51,16 +76,36 @@ def generate_description(info):
 【出力形式】必ず以下の形式で出力してください。
 
 【タイトル】
-（40文字以内。ブランド名・アイテム・色・サイズを含める）
+（40文字ちょうどになるまで使い切ること。文章にせず、検索されやすい単語を並べる形にする。ブランド名（英語表記とカタカナ表記の両方が一般的なら両方）、アイテム名、色、素材、デザインの特徴（【説明文】に書く内容から検索されそうな単語を拾う）、サイズを、優先度が高い順に並べて40文字に収まるだけ詰め込む）
 
 【説明文】
-（150〜200文字。箇条書きは使わず自然な文章で。状態の良さと信頼感が伝わるように。必ず実寸（{info['measurements']}）を文中に自然に含めること。説明文の最後には必ず「平置きでの採寸のため、±1〜2cmの誤差があります。ご不明な点はお気軽にコメントください」を入れる）
+（120〜180文字。商品の魅力（デザインの特徴・素材感・着こなし方・季節感など）が伝わる文章のみを書くこと。見出し・実寸・注意書きは書かない。1文ごとに改行を入れて読みやすくする。箇条書きにはしない）
 
 【ハッシュタグ】
 （5〜8個。メルカリで検索されやすいものを選ぶ）
 """
     response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
-    return response.text
+    text = response.text
+
+    title = extract_section(text, 'タイトル')
+    appeal = extract_section(text, '説明文')
+    hashtags = extract_section(text, 'ハッシュタグ')
+
+    header_parts = []
+    if info['brand'] and info['brand'] != 'ノーブランド':
+        header_parts.append(f"【ブランド】\n{info['brand']}")
+    header_parts.append(f"【状態】\n{info['condition']}")
+    header_parts.append(
+        "【サイズ】\n"
+        f"表記：{info['size']}\n"
+        "実寸\n"
+        f"{format_measurements(info['measurements'])}\n"
+        "※素人採寸のため、多少の誤差はご容赦ください。"
+    )
+
+    description = '\n\n'.join(header_parts) + '\n\n' + appeal + '\n\n' + DISCLAIMER
+
+    return {"title": title, "description": description, "hashtags": hashtags}
 
 @app.route("/")
 def index():
@@ -71,7 +116,7 @@ def generate():
     info = request.json
     print("受信データ:", info)
     result = generate_description(info)
-    return jsonify({"result": result})
+    return jsonify(result)
 
 @app.route("/style", methods=["POST"])
 def style():
