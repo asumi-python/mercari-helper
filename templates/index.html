@@ -478,12 +478,6 @@
         <button class="copy-btn" onclick="copy('out-desc')">コピー</button>
       </div>
 
-      <div class="result-block">
-        <div class="result-label">🔖 ハッシュタグ</div>
-        <div class="result-text" id="out-tags"></div>
-        <button class="copy-btn" onclick="copy('out-tags')">コピー</button>
-      </div>
-
       <button class="btn-reset" onclick="reset()">🔄 もう一度入力する</button>
     </div>
   </div>
@@ -745,7 +739,6 @@
 
         document.getElementById('out-title').textContent = data.title;
         document.getElementById('out-desc').textContent = data.description;
-        document.getElementById('out-tags').textContent = data.hashtags;
 
         document.getElementById('result-card').style.display = 'block';
         document.getElementById('result-card').scrollIntoView({ behavior: 'smooth' });

@@ -9,15 +9,32 @@ load_dotenv()
 app = Flask(__name__)
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-DISCLAIMER = """★必ず以下を確認の上ご購入をよろしくお願いいたします
-◆当店の商品は古着ですので、すべて″実寸サイズ″を基にサイズを記載しております。必ず実寸サイズをご確認の上ご購入ください。
-◆写真は実物をスマホで撮影しております！
-◆全商品厳選した一点物になります。
-◆多少の汚れ・破れがあっても、目立っていなければ「目立った傷や汚れなし」として販売しております。
+DISCLAIMER = """✨ご購入前に、ぜひ読んでいただきたいこと✨
 
-◎ 古着にご理解ある方のみお求めください。
-◎ 匂いや細かなダメージなど、見落としがある場合がございます。
-◎ コンパクトに畳んで発送いたします。"""
+一点一点、着回しやすさや季節感を基準に選んで仕入れています。
+コーディネートに迷ったら、お気軽にコメントください☺
+
+古着という特性上、あらかじめ知っておいていただきたいことをまとめました。
+
+◆サイズ表記だけでなく、必ず実寸サイズをご確認ください
+古着は同じ表記サイズでも、ブランドや年代によってサイズ感が異なります。
+実寸を基準にご判断いただくと、サイズ選びの失敗が少なくなります。
+
+◆写真は加工せず、スマホで撮影したそのままの実物です
+色味や質感をできるだけ実際に近い状態でお届けしたいので、あえて加工はしていません。
+光の当たり方で多少印象が変わる場合があります。
+
+◆「目立った傷・汚れなし」の基準について
+古着のため、多少の使用感（軽い毛羽立ちやごく小さな汚れなど）がある場合がありますが、
+パッと見て気にならない範囲は「目立った傷・汚れなし」としています。
+
+◎ 古着ならではの風合いも楽しんでいただける方に、ぜひ手に取っていただきたいです☘
+◎ 匂いや細かなダメージなど、見落としてしまう場合があります。気になる点は気軽にコメントください
+◎ 発送の際はコンパクトに畳んでお送りします。到着後、軽くしわを伸ばしていただくと綺麗に着ていただけます"""
+
+FOLLOW_DISCOUNT = """✨最後まで読んでくださってありがとうございます✨
+当店をフォローしていただいた方には、ちょっとしたお値引きをさせていただいております☺
+よろしければ他のお品物も覗いてみてください☘"""
 
 
 def format_measurements(measurements):
@@ -97,11 +114,22 @@ def generate_description(info):
     appeal = extract_section(text, '説明文')
     hashtags = extract_section(text, 'ハッシュタグ')
 
-    header_parts = []
-    if info['brand'] and info['brand'] != 'ノーブランド':
-        header_parts.append(f"【ブランド】\n{info['brand']}")
-    header_parts.append(f"【状態】\n{info['condition']}")
-    header_parts.append(
+    detail_parts = [
+        f"【ブランド】\n{info['brand']}",
+        f"【状態】\n{info['condition']}",
+    ]
+
+    material = info.get('material')
+    if material:
+        detail_parts.append(f"【素材】\n{material}")
+    else:
+        detail_parts.append(
+            "【素材】\n"
+            "タグの摩耗・欠損により素材表記の確認ができないため、記載を省略しております。\n"
+            "ご不明点はコメントにてお問い合わせください。"
+        )
+
+    detail_parts.append(
         "【サイズ】\n"
         f"表記：{info['size']}\n"
         "実寸\n"
@@ -109,7 +137,13 @@ def generate_description(info):
         "※素人採寸のため、多少の誤差はご容赦ください。"
     )
 
-    description = '\n\n'.join(header_parts) + '\n\n' + appeal + '\n\n' + DISCLAIMER
+    description = '\n\n'.join([
+        appeal,
+        hashtags,
+        '\n\n'.join(detail_parts),
+        DISCLAIMER,
+        FOLLOW_DISCOUNT,
+    ])
 
     return {"title": title, "description": description, "hashtags": hashtags}
 
