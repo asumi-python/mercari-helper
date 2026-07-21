@@ -11,26 +11,19 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 DISCLAIMER = """✨ご購入前に、ぜひ読んでいただきたいこと✨
 
-一点一点、着回しやすさや季節感を基準に選んで仕入れています。
-コーディネートに迷ったら、お気軽にコメントください☺
-
 古着という特性上、あらかじめ知っておいていただきたいことをまとめました。
 
 ◆サイズ表記だけでなく、必ず実寸サイズをご確認ください
 古着は同じ表記サイズでも、ブランドや年代によってサイズ感が異なります。
-実寸を基準にご判断いただくと、サイズ選びの失敗が少なくなります。
 
 ◆写真は加工せず、スマホで撮影したそのままの実物です
-色味や質感をできるだけ実際に近い状態でお届けしたいので、あえて加工はしていません。
 光の当たり方で多少印象が変わる場合があります。
 
 ◆「目立った傷・汚れなし」の基準について
-古着のため、多少の使用感（軽い毛羽立ちやごく小さな汚れなど）がある場合がありますが、
-パッと見て気にならない範囲は「目立った傷・汚れなし」としています。
+多少の使用感（軽い毛羽立ちやごく小さな汚れなど）がパッと見て気にならない範囲を指します。
+匂いや細かなダメージなど見落としてしまう場合もあるので、気になる点はお気軽にコメントください☺
 
-◎ 古着ならではの風合いも楽しんでいただける方に、ぜひ手に取っていただきたいです☘
-◎ 匂いや細かなダメージなど、見落としてしまう場合があります。気になる点は気軽にコメントください
-◎ 発送の際はコンパクトに畳んでお送りします。到着後、軽くしわを伸ばしていただくと綺麗に着ていただけます"""
+◎発送の際はコンパクトに畳んでお送りします。到着後、軽くしわを伸ばしていただくと綺麗に着ていただけます☘"""
 
 FOLLOW_DISCOUNT = """✨最後まで読んでくださってありがとうございます✨
 当店をフォローしていただいた方には、ちょっとしたお値引きをさせていただいております☺
@@ -63,6 +56,27 @@ def enforce_title_length(title, limit=40):
         words.pop()
     result = ' '.join(words)
     return result[:limit]
+
+def enforce_description_length(appeal, hashtags, detail_text, limit=1000):
+    def build(a):
+        return '\n\n'.join([a, hashtags, detail_text, DISCLAIMER, FOLLOW_DISCOUNT])
+
+    description = build(appeal)
+    if len(description) <= limit:
+        return description
+
+    lines = appeal.split('\n')
+    while len(lines) > 1 and len(build('\n'.join(lines))) > limit:
+        lines.pop()
+    appeal = '\n'.join(lines)
+    description = build(appeal)
+
+    if len(description) > limit:
+        overage = len(description) - limit
+        appeal = appeal[:-overage] if overage < len(appeal) else ''
+        description = build(appeal)
+
+    return description
 
 def analyze_style(query):
     prompt = f"""
@@ -154,13 +168,7 @@ def generate_description(info):
         "※素人採寸のため、多少の誤差はご容赦ください。"
     )
 
-    description = '\n\n'.join([
-        appeal,
-        hashtags,
-        '\n\n'.join(detail_parts),
-        DISCLAIMER,
-        FOLLOW_DISCOUNT,
-    ])
+    description = enforce_description_length(appeal, hashtags, '\n\n'.join(detail_parts))
 
     return {"title": title, "description": description, "hashtags": hashtags}
 
