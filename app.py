@@ -2,12 +2,20 @@ import os
 import re
 from flask import Flask, render_template, request, jsonify
 from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = Flask(__name__)
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+# gemini-2.5-flashはデフォルトで思考(thinking)機能がONになっており、
+# 単純な文章生成でも内部で推論トークンを消費して数秒〜十数秒遅くなる。
+# スタイル診断・説明文生成は思考不要なタスクなのでOFFにして高速化する。
+FAST_CONFIG = types.GenerateContentConfig(
+    thinking_config=types.ThinkingConfig(thinking_budget=0)
+)
 
 DISCLAIMER = """✨ご購入前に、ぜひ読んでいただきたいこと✨
 
@@ -102,7 +110,9 @@ def analyze_style(query):
 【こんな商品に使える】
 （どんなアイテム・色・素材に合うか1〜2文で）
 """
-    response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+    response = client.models.generate_content(
+        model="gemini-2.5-flash", contents=prompt, config=FAST_CONFIG
+    )
     return response.text
 
 def generate_description(info):
@@ -136,7 +146,9 @@ def generate_description(info):
 （5〜8個。メルカリで検索されやすいものを選ぶ）
 """
     try:
-        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash", contents=prompt, config=FAST_CONFIG
+        )
         text = response.text
     except Exception as e:
         print("Gemini APIエラー:", repr(e))
