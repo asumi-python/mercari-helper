@@ -449,6 +449,11 @@
         <input type="hidden" id="material">
       </div>
 
+      <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" id="uncertain-style" style="width:auto;">
+        <label for="uncertain-style" style="margin:0;">系統が決めづらい商品（タイトル候補を3パターン出す）</label>
+      </div>
+
       <button class="btn" onclick="generate()">✨ 説明文を生成する</button>
     </div>
 
@@ -468,8 +473,7 @@
 
       <div class="result-block">
         <div class="result-label">📌 タイトル</div>
-        <div class="result-text" id="out-title"></div>
-        <button class="copy-btn" onclick="copy('out-title')">コピー</button>
+        <div id="title-container"></div>
       </div>
 
       <div class="result-block">
@@ -715,6 +719,7 @@
         condition:    document.getElementById('condition').value,
         material:     document.getElementById('material').value,
         style:        document.getElementById('style-value').value.trim(),
+        uncertain_style: document.getElementById('uncertain-style').checked,
       };
 
       document.querySelector('.btn').disabled = true;
@@ -737,7 +742,7 @@
           throw new Error(data.error || ('サーバーエラー: ' + res.status));
         }
 
-        document.getElementById('out-title').textContent = data.title;
+        renderTitles(data);
         document.getElementById('out-desc').textContent = data.description;
 
         document.getElementById('result-card').style.display = 'block';
@@ -769,6 +774,43 @@
       if (currentAbortController) currentAbortController.abort();
       document.getElementById('loading').style.display = 'none';
       document.querySelector('.btn').disabled = false;
+    }
+
+    // ── タイトル候補の表示（通常は1件、系統が決めづらい場合は複数件） ──
+    function renderTitles(data) {
+      const container = document.getElementById('title-container');
+      container.innerHTML = '';
+      const titles = data.titles || [{ style: null, title: data.title }];
+
+      titles.forEach((t, i) => {
+        if (titles.length > 1) {
+          const label = document.createElement('div');
+          label.style.cssText = 'font-size:11px; color:#aaa; margin-bottom:2px;';
+          label.textContent = `候補${i + 1}` + (t.style ? `（${t.style}）` : '');
+          container.appendChild(label);
+        }
+
+        const box = document.createElement('div');
+        box.className = 'result-text';
+        box.style.marginBottom = '6px';
+        box.textContent = t.title;
+        container.appendChild(box);
+
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'コピー';
+        btn.style.marginBottom = '12px';
+        btn.onclick = () => copyText(t.title, btn);
+        container.appendChild(btn);
+      });
+    }
+
+    function copyText(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        const original = btn.textContent;
+        btn.textContent = 'コピーしました！';
+        setTimeout(() => { btn.textContent = original; }, 2000);
+      });
     }
 
     function copy(id) {
