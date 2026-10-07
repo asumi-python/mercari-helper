@@ -1,5 +1,6 @@
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from flask import Flask, render_template, request, jsonify
 from google import genai
@@ -167,32 +168,11 @@ def generate_description(info):
     examples_block = f"\n{examples}\n" if examples else ""
     uncertain_style = bool(info.get('uncertain_style'))
 
-    if uncertain_style:
-        title_instruction = (
-            "（この商品は系統が1つに決めづらいため、上の【当店で使っている系統一覧】から異なる系統を3つ選び、"
-            "それぞれを軸にしたタイトル候補を3つ作ること。各候補は単独で40文字ちょうどになるまで使い切り、"
-            "文章にせず検索されやすい単語を並べる形にする。単語と単語の間は必ず半角スペースで区切り、続けて書かないこと。"
-            "アイテム名、サイズ、色、ブランド名、素材、系統・デザインの特徴を優先度が高い順に並べ、優先度が低い単語から"
-            "先に削って調整すること。系統ワードは各候補1個までにする。\n"
-            "必ず以下の形式で、3行だけ出力すること（説明文などはここに書かない）：\n"
-            "候補1：（系統名）単語 単語 単語 単語（スペース区切りのタイトル本体）\n"
-            "候補2：（系統名）単語 単語 単語 単語（スペース区切りのタイトル本体）\n"
-            "候補3：（系統名）単語 単語 単語 単語（スペース区切りのタイトル本体））"
-        )
-        appeal_note = "この商品は系統が複数候補あるため、特定の系統の読み手に限定しすぎず、どの候補タイトルで見た人が読んでも違和感のない書き方にすること。"
-    else:
-        title_instruction = (
-            "（40文字ちょうどになるまで使い切ること。文章にせず、検索されやすい単語を並べる形にする。アイテム名、サイズ、色、"
-            "ブランド名（英語表記とカタカナ表記の両方が一般的なら両方）、素材、系統・デザインの特徴を、優先度が高い順に並べて"
-            "40文字に収まるだけ詰め込む。優先度が低い単語（素材・系統・デザインの特徴）から先に削って調整すること。ただし"
-            "系統・雰囲気を表す単語は、複数思いついても合計1〜2個までに絞ること。使う場合は上の【当店で使っている系統一覧】の"
-            "中から商品に最も近いものを選び、一覧に無い独自の雰囲気ワードを何個も並べないこと）"
-        )
-        appeal_note = ""
-
-    prompt = f"""
+    # 系統一覧・販売傾向・商品情報など、タイトル用プロンプトと説明文用プロンプトの両方で必要な部分。
+    # 2本に分けて並行実行する分、入力トークンは2重になるが、生成時間を支配するのは出力の長さなので
+    # 入力が多少増えてもレイテンシへの影響は小さい。
+    context_block = f"""
 あなたはメルカリ出品のプロです。
-以下の商品情報をもとに、タイトル・説明文・ハッシュタグを作成してください。
 
 【当店で使っている系統一覧】
 {keitou_reference_text()}
@@ -209,11 +189,30 @@ def generate_description(info):
 状態：{info['condition']}
 素材：{info.get('material') or '不明'}
 {style_line}
+"""
 
+    if uncertain_style:
+        title_instruction = (
+            "（この商品は系統が1つに決めづらいため、上の【当店で使っている系統一覧】から異なる系統を3つ選び、"
+            "それぞれを軸にしたタイトル候補を3つ作ること。各候補は単独で40文字ちょうどになるまで使い切り、"
+            "文章にせず検索されやすい単語を並べる形にする。単語と単語の間は必ず半角スペースで区切り、続けて書かないこと。"
+            "アイテム名、サイズ、色、ブランド名、素材、系統・デザインの特徴を優先度が高い順に並べ、優先度が低い単語から"
+            "先に削って調整すること。系統ワードは各候補1個までにする。\n"
+            "必ず以下の形式で、3行だけ出力すること（説明文などはここに書かない）：\n"
+            "候補1：（系統名）単語 単語 単語 単語（スペース区切りのタイトル本体）\n"
+            "候補2：（系統名）単語 単語 単語 単語（スペース区切りのタイトル本体）\n"
+            "候補3：（系統名）単語 単語 単語 単語（スペース区切りのタイトル本体））"
+        )
+        appeal_note = "この商品は系統が複数候補あるため、特定の系統の読み手に限定しすぎず、どの候補タイトルで見た人が読んでも違和感のない書き方にすること。"
+
+        title_prompt = f"""{context_block}
 【出力形式】必ず以下の形式で出力してください。
 
 【タイトル】
 {title_instruction}
+"""
+        desc_prompt = f"""{context_block}
+【出力形式】必ず以下の形式で出力してください。
 
 【説明文】
 （商品の魅力を3つのポイントに絞り、1ポイント1行、各行の先頭に「✅」を付けて箇条書きにすること。長い文章は読まれないため、1行は20〜30文字程度の短い一文にまとめる。ポイントはデザインの特徴・素材感・着こなし方・季節感などから、その商品に合うものを3つ選ぶ。着こなし方を提案する行は、その商品自体の系統・雰囲気に自然に合うものにすること（特定のコンセプトに無理に寄せない）。{appeal_note}色・素材・状態など商品自体の事実は正確に書き、誇張・変更しないこと。見出し・実寸・注意書きは書かない。行頭の✅以外の記号（✨・☺・☘など）は文中で使わず、ごちゃごちゃしないようにする）
@@ -221,19 +220,63 @@ def generate_description(info):
 【ハッシュタグ】
 （5〜8個。メルカリで検索されやすいものを選ぶ）
 """
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash", contents=prompt, config=FAST_CONFIG
-        )
-        text = response.text
-    except Exception as e:
-        print("Gemini APIエラー:", repr(e))
-        if '429' in str(e) or 'RESOURCE_EXHAUSTED' in str(e):
-            return {"error": "只今アクセスが集中しています。1分ほど待ってからもう一度お試しください。"}
-        return {"error": "生成に失敗しました。もう一度お試しください。"}
+        try:
+            # タイトル3候補と説明文を1本のプロンプトで順番に書かせると出力量が多く遅いため、
+            # 2本の呼び出しに分けて並行実行し、待ち時間を「長い方の呼び出し時間」まで短縮する。
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                title_future = executor.submit(
+                    client.models.generate_content,
+                    model="gemini-2.5-flash", contents=title_prompt, config=FAST_CONFIG
+                )
+                desc_future = executor.submit(
+                    client.models.generate_content,
+                    model="gemini-2.5-flash", contents=desc_prompt, config=FAST_CONFIG
+                )
+                title_text = title_future.result().text
+                desc_text = desc_future.result().text
+        except Exception as e:
+            print("Gemini APIエラー:", repr(e))
+            if '429' in str(e) or 'RESOURCE_EXHAUSTED' in str(e):
+                return {"error": "只今アクセスが集中しています。1分ほど待ってからもう一度お試しください。"}
+            return {"error": "生成に失敗しました。もう一度お試しください。"}
 
-    appeal = extract_section(text, '説明文')
-    hashtags = extract_section(text, 'ハッシュタグ')
+        titles = extract_title_candidates(title_text)
+        appeal = extract_section(desc_text, '説明文')
+        hashtags = extract_section(desc_text, 'ハッシュタグ')
+    else:
+        title_instruction = (
+            "（40文字ちょうどになるまで使い切ること。文章にせず、検索されやすい単語を並べる形にする。アイテム名、サイズ、色、"
+            "ブランド名（英語表記とカタカナ表記の両方が一般的なら両方）、素材、系統・デザインの特徴を、優先度が高い順に並べて"
+            "40文字に収まるだけ詰め込む。優先度が低い単語（素材・系統・デザインの特徴）から先に削って調整すること。ただし"
+            "系統・雰囲気を表す単語は、複数思いついても合計1〜2個までに絞ること。使う場合は上の【当店で使っている系統一覧】の"
+            "中から商品に最も近いものを選び、一覧に無い独自の雰囲気ワードを何個も並べないこと）"
+        )
+
+        prompt = f"""{context_block}
+【出力形式】必ず以下の形式で出力してください。
+
+【タイトル】
+{title_instruction}
+
+【説明文】
+（商品の魅力を3つのポイントに絞り、1ポイント1行、各行の先頭に「✅」を付けて箇条書きにすること。長い文章は読まれないため、1行は20〜30文字程度の短い一文にまとめる。ポイントはデザインの特徴・素材感・着こなし方・季節感などから、その商品に合うものを3つ選ぶ。着こなし方を提案する行は、その商品自体の系統・雰囲気に自然に合うものにすること（特定のコンセプトに無理に寄せない）。色・素材・状態など商品自体の事実は正確に書き、誇張・変更しないこと。見出し・実寸・注意書きは書かない。行頭の✅以外の記号（✨・☺・☘など）は文中で使わず、ごちゃごちゃしないようにする）
+
+【ハッシュタグ】
+（5〜8個。メルカリで検索されやすいものを選ぶ）
+"""
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash", contents=prompt, config=FAST_CONFIG
+            )
+            text = response.text
+        except Exception as e:
+            print("Gemini APIエラー:", repr(e))
+            if '429' in str(e) or 'RESOURCE_EXHAUSTED' in str(e):
+                return {"error": "只今アクセスが集中しています。1分ほど待ってからもう一度お試しください。"}
+            return {"error": "生成に失敗しました。もう一度お試しください。"}
+
+        appeal = extract_section(text, '説明文')
+        hashtags = extract_section(text, 'ハッシュタグ')
 
     detail_parts = [
         f"【ブランド】\n{info['brand']}",
@@ -261,7 +304,7 @@ def generate_description(info):
     description = enforce_description_length(appeal, hashtags, '\n\n'.join(detail_parts))
 
     if uncertain_style:
-        return {"titles": extract_title_candidates(text), "description": description, "hashtags": hashtags}
+        return {"titles": titles, "description": description, "hashtags": hashtags}
     return {"title": enforce_title_length(extract_section(text, 'タイトル')), "description": description, "hashtags": hashtags}
 
 @app.route("/")
