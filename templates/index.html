@@ -253,42 +253,6 @@
   <div class="container">
     <h1>🛍️ メルカリ出品サポート</h1>
 
-    <!-- スタイル診断カード -->
-    <div class="card" id="style-card">
-      <div class="section-title">🔍 スタイル診断（任意）</div>
-      <p style="font-size:13px; color:#888; margin-bottom:12px;">
-        「Y2Kってどんな感じ？」「フリルが多い甘い雰囲気」など自由に入力してください。<br>
-        AIがスタイル名・キーワードを教えてくれます✨
-      </p>
-      <div style="display:flex; gap:8px;">
-        <input type="text" id="style-query" placeholder="例：Y2K・グランジ・甘くてフェミニンな感じ" style="flex:1;">
-        <button type="button" onclick="analyzeStyle()"
-          style="padding:10px 16px; background:#e8526a; color:white; border:none; border-radius:8px; font-size:14px; font-weight:bold; cursor:pointer; white-space:nowrap;">
-          診断する
-        </button>
-      </div>
-
-      <div id="style-loading" style="display:none; text-align:center; color:#999; padding:12px; font-size:13px;">
-        AIが分析中...
-      </div>
-
-      <div id="style-result" style="display:none; margin-top:14px;">
-        <div class="result-text" id="style-result-text" style="font-size:13px; margin-bottom:10px;"></div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-          <span style="font-size:12px; color:#888;">このスタイルで生成に反映する：</span>
-          <input type="text" id="style-selected" placeholder="スタイルキーワードを入力・編集"
-                 style="flex:1; font-size:13px; padding:8px 10px;">
-          <button type="button" onclick="applyStyle()"
-            style="padding:8px 14px; background:#e8526a; color:white; border:none; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer;">
-            ✅ 反映する
-          </button>
-        </div>
-        <div id="style-applied-msg" style="display:none; color:#e8526a; font-size:12px; margin-top:6px;">
-          ✨ スタイルが反映されました！下のフォームで確認できます。
-        </div>
-      </div>
-    </div>
-
     <div class="card" id="form-card">
       <div class="section-title">必須情報</div>
 
@@ -400,13 +364,6 @@
                style="display:none; margin-top:8px;">
       </div>
 
-      <!-- スタイル反映欄 -->
-      <div class="form-group" id="style-form-group" style="display:none;">
-        <label>スタイル・雰囲気 <span class="optional">（診断から反映）</span></label>
-        <input type="text" id="style-value" placeholder="例：Y2K・フェミニン" readonly
-               style="background:#fdf0f2; color:#e8526a; font-weight:bold;">
-      </div>
-
       <!-- 色・柄 -->
       <div class="form-group">
         <label>色 <span class="required">*</span></label>
@@ -432,6 +389,28 @@
 
       <div class="section-title" style="margin-top:20px;">任意情報（あれば入力）</div>
 
+      <!-- 系統・雰囲気 -->
+      <div class="form-group">
+        <label>系統・雰囲気 <span class="optional">（複数選択OK、わからなければ未選択でOK）</span></label>
+        <div class="size-buttons" id="keitou-buttons">
+          {% for name in keitou_names %}
+          <button type="button" class="size-btn" onclick="toggleKeitou(this)">{{ name }}</button>
+          {% endfor %}
+        </div>
+        <input type="hidden" id="style">
+      </div>
+
+      <!-- 年代・vintage -->
+      <div class="form-group">
+        <label>年代・vintage <span class="optional">（複数選択OK、根拠が無ければ未選択でOK）</span></label>
+        <div class="size-buttons" id="era-buttons">
+          {% for name in era_names %}
+          <button type="button" class="size-btn" onclick="toggleEra(this)">{{ name }}</button>
+          {% endfor %}
+        </div>
+        <input type="hidden" id="era">
+      </div>
+
       <!-- 素材 -->
       <div class="form-group">
         <label>素材（複数選択OK）</label>
@@ -440,9 +419,17 @@
           <button type="button" class="size-btn" onclick="toggleMaterial(this)">ポリエステル</button>
           <button type="button" class="size-btn" onclick="toggleMaterial(this)">ナイロン</button>
           <button type="button" class="size-btn" onclick="toggleMaterial(this)">ウール</button>
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">カシミヤ</button>
           <button type="button" class="size-btn" onclick="toggleMaterial(this)">シルク</button>
           <button type="button" class="size-btn" onclick="toggleMaterial(this)">リネン</button>
           <button type="button" class="size-btn" onclick="toggleMaterial(this)">レーヨン</button>
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">デニム</button>
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">コーデュロイ</button>
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">フリース</button>
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">ベロア</button>
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">サテン</button>
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">ツイード</button>
+          <button type="button" class="size-btn" onclick="toggleMaterial(this)">本革</button>
           <button type="button" class="size-btn" onclick="toggleMaterial(this)">その他</button>
         </div>
         <input type="text" id="material-other" placeholder="素材を入力" style="display:none; margin-top:8px;">
@@ -487,42 +474,20 @@
   </div>
 
   <script>
-    // ── スタイル診断 ──
-    async function analyzeStyle() {
-      const query = document.getElementById('style-query').value.trim();
-      if (!query) { alert('スタイルや雰囲気を入力してください。'); return; }
-
-      document.getElementById('style-loading').style.display = 'block';
-      document.getElementById('style-result').style.display = 'none';
-
-      const res = await fetch('/style', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
-      });
-      const data = await res.json();
-
-      document.getElementById('style-loading').style.display = 'none';
-      document.getElementById('style-result-text').textContent = data.result;
-
-      // スタイル名をキーワード欄に自動セット
-      const styleMatch = data.result.match(/【スタイル名】\s*([\s\S]*?)(?=\n【|$)/);
-      if (styleMatch) {
-        document.getElementById('style-selected').value = styleMatch[1].trim();
-      }
-
-      document.getElementById('style-result').style.display = 'block';
+    // ── 系統選択（複数OK） ──
+    function toggleKeitou(btn) {
+      btn.classList.toggle('active');
+      const selected = [...document.querySelectorAll('#keitou-buttons .size-btn.active')]
+        .map(b => b.textContent);
+      document.getElementById('style').value = selected.join('・');
     }
 
-    function applyStyle() {
-      const val = document.getElementById('style-selected').value.trim();
-      if (!val) return;
-      document.getElementById('style-value').value = val;
-      document.getElementById('style-form-group').style.display = 'block';
-      document.getElementById('style-applied-msg').style.display = 'block';
-      setTimeout(() => {
-        document.getElementById('style-applied-msg').style.display = 'none';
-      }, 3000);
+    // ── 年代・vintage選択（複数OK） ──
+    function toggleEra(btn) {
+      btn.classList.toggle('active');
+      const selected = [...document.querySelectorAll('#era-buttons .size-btn.active')]
+        .map(b => b.textContent);
+      document.getElementById('era').value = selected.join('・');
     }
 
     // ── アイテムグループ定義 ──
@@ -718,7 +683,8 @@
         color:        colorText,
         condition:    document.getElementById('condition').value,
         material:     document.getElementById('material').value,
-        style:        document.getElementById('style-value').value.trim(),
+        style:        document.getElementById('style').value,
+        era:          document.getElementById('era').value,
         uncertain_style: document.getElementById('uncertain-style').checked,
       };
 
