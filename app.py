@@ -69,6 +69,38 @@ def strip_free_size_word(title):
     return ' '.join(words)
 
 
+def strip_literal_words(title, words):
+    """タイトルから素材名・サイズ表記そのままの単語を除去する二重チェック。
+    「禁止」とプロンプトで指示しても守られないことがあるため（例：コーデュロイ・Lがタイトルに残った事例）。
+    英数字の単語（サイズ表記など）は前後が英数字でない場合だけ除去し、
+    ブランド名など他の単語（例：UNIQLOのL）への誤爆を避ける。"""
+    for word in words:
+        word = (word or '').strip()
+        if not word:
+            continue
+        if re.fullmatch(r'[A-Za-z0-9]+', word):
+            title = re.sub(
+                rf'(?<![A-Za-z0-9]){re.escape(word)}(?![A-Za-z0-9])', '', title, flags=re.IGNORECASE
+            )
+        else:
+            title = title.replace(word, '')
+    return re.sub(r'[ 　]{2,}', ' ', title).strip()
+
+
+def clean_title(title, info, free_size):
+    material_words = [w for w in (info.get('material') or '').split('・') if w]
+    size = info['size']
+    # 「Lサイズ」のように単位語とセットで出力され、サイズ値だけ除去すると「サイズ」が浮いて残ることがあるため、
+    # 結合表記→サイズ値単体→「サイズ」という語そのもの、の順に段階的に取り除く。
+    forbidden_words = material_words + [f'{size}サイズ', f'サイズ{size}', size, 'サイズ']
+    if info.get('brand') == 'ノーブランド':
+        forbidden_words.append('ノーブランド')
+    title = strip_literal_words(title, forbidden_words)
+    if free_size:
+        title = strip_free_size_word(title)
+    return enforce_title_length(title)
+
+
 # 実際に閲覧数が多かった／早く売れた商品のタイトル・説明文の実例。
 # 売れた商品が出るたびにここへ追加していくと、生成の精度が上がっていく。
 # {"title": "実際のタイトル", "description": "実際の説明文（本文のみでOK、注意書き等は除く）"} の形で追加する。
@@ -107,16 +139,15 @@ def extract_section(text, section):
     return re.sub(r'^\(.*?\)\s*', '', match.group(1).strip(), flags=re.S).strip()
 
 
-def extract_title_candidates(text, free_size=False):
+def extract_title_candidates(text, info, free_size=False):
     """系統が決めづらい商品向け：「候補1：（系統名）タイトル」形式の行を複数抽出する"""
     def clean(raw):
-        raw = strip_free_size_word(raw) if free_size else raw
-        return enforce_title_length(raw)
+        return clean_title(raw, info, free_size)
 
     section = extract_section(text, 'タイトル')
     matches = re.findall(r'候補\d+[：:]\s*(?:[（(](.*?)[）)])?\s*(.+)', section)
     if not matches:
-        return [{"style": None, "title": clean(section)}]
+        return [{"style": None, "title": clean(section.split('\n')[0].strip())}]
     return [
         {"style": style.strip() if style else None, "title": clean(title.strip())}
         for style, title in matches
@@ -216,11 +247,19 @@ def generate_description(info):
         if info.get('era') else ""
     )
 
+    has_brand = bool(info.get('brand')) and info['brand'] != 'ノーブランド'
+
+    forbidden_note = f"特に「{info['size']}」というサイズ表記"
+    if info.get('material'):
+        forbidden_note += f"と「{info['material']}」という素材名"
+    if info.get('brand') == 'ノーブランド':
+        forbidden_note += "と「ノーブランド」という言葉"
+    forbidden_note += "は、そのままタイトルに入れないこと。"
+
     if uncertain_style:
-        priority_items = ["アイテム名"]
-        if not free_size:
-            priority_items.append("サイズ")
-        priority_items += ["色", "ブランド名", "素材"]
+        priority_items = ["アイテム名", "色"]
+        if has_brand:
+            priority_items.append("ブランド名")
         if info.get('era'):
             priority_items.append("年代")
         priority_items.append("系統・デザインの特徴")
@@ -231,8 +270,9 @@ def generate_description(info):
             "それぞれを軸にしたタイトル候補を3つ作ること。各候補は単独で40文字ちょうどになるまで使い切り、"
             "文章にせず検索されやすい単語を並べる形にする。単語と単語の間は必ず半角スペースで区切り、続けて書かないこと。"
             f"{priority_text}を優先度が高い順に並べ、優先度が低い単語から"
-            "先に削って調整すること。系統ワードは各候補1個までにする。"
-            f"{era_note}\n"
+            f"先に削って調整すること。素材名（生地感）やサイズ表記はタイトルに含めないこと。{forbidden_note}系統ワードは各候補1個までにする。"
+            f"{era_note}"
+            "各候補の文字数が40字に届かない場合は、色やブランド名の表記を増やすなどして、できるだけ40字に近づけること。極端に短い候補（30字未満）は避けること。\n"
             "必ず以下の形式で、3行だけ出力すること（説明文などはここに書かない）：\n"
             "候補1：（系統名）単語 単語 単語 単語（スペース区切りのタイトル本体）\n"
             "候補2：（系統名）単語 単語 単語 単語（スペース区切りのタイトル本体）\n"
@@ -250,7 +290,7 @@ def generate_description(info):
 【出力形式】必ず以下の形式で出力してください。
 
 【説明文】
-（商品の魅力を3つのポイントに絞り、1ポイント1行、各行の先頭に「✅」を付けて箇条書きにすること。長い文章は読まれないため、1行は20〜30文字程度の短い一文にまとめる。ポイントはデザインの特徴・素材感・着こなし方・季節感などから、その商品に合うものを3つ選ぶ。着こなし方を提案する行は、その商品自体の系統・雰囲気に自然に合うものにすること（特定のコンセプトに無理に寄せない）。{appeal_note}色・素材・状態など商品自体の事実は正確に書き、誇張・変更しないこと。素材の感触・品質を断定する表現（上質・肌触り抜群・高級など）は使わないこと。見出し・実寸・注意書きは書かない。行頭の✅以外の記号（✨・☺・☘など）は文中で使わず、ごちゃごちゃしないようにする）
+（商品の魅力を3つのポイントに絞り、1ポイント1行、各行の先頭に「✅」を付けて箇条書きにすること。1行は35〜55文字程度にし、事実を並べるだけでなく読み手に語りかける言葉遣いにする（例：「〜なので、一日中着ていても楽な一枚です」のように、着た人がどう感じられるかまで書く）。ポイントのうち最低1つは、どんな日・場面に合わせやすいか具体的な着用シーンを描写すること。残りはデザインの特徴・素材感・着こなし方・季節感などから、その商品に合うものを選ぶ（1行に複数の要素を組み合わせてもよい）。【商品情報】にある色・柄・系統・年代・ブランドなど、この商品固有の情報を各ポイントに必ず1つ以上絡めること。他のどんな商品にも当てはまるような当たり障りのない一般論（例：「着回しやすい一枚です」「普段使いにおすすめです」のような、具体的な根拠なしで終わる文）は避け、この商品だからこそ言える内容にすること。着こなし方やシーンを提案する行は、その商品自体の系統・雰囲気に自然に合うものにすること（特定のコンセプトに無理に寄せない）。{appeal_note}色・素材・状態など商品自体の事実は正確に書き、誇張・変更しないこと。素材の感触・品質を断定する表現（上質・肌触り抜群・高級など）は使わないこと。見出し・実寸・注意書きは書かない。行頭の✅以外の記号（✨・☺・☘など）は文中で使わず、ごちゃごちゃしないようにする）
 
 【ハッシュタグ】
 （5〜8個。メルカリで検索されやすいものを選ぶ）
@@ -275,25 +315,45 @@ def generate_description(info):
                 return {"error": "只今アクセスが集中しています。1分ほど待ってからもう一度お試しください。"}
             return {"error": "生成に失敗しました。もう一度お試しください。"}
 
-        titles = extract_title_candidates(title_text, free_size=free_size)
+        titles = extract_title_candidates(title_text, info, free_size=free_size)
         appeal = extract_section(desc_text, '説明文')
         hashtags = extract_section(desc_text, 'ハッシュタグ')
     else:
-        priority_items = ["アイテム名"]
-        if not free_size:
-            priority_items.append("サイズ")
-        priority_items += ["色", "ブランド名（英語表記とカタカナ表記の両方が一般的なら両方）", "素材"]
+        priority_items = ["アイテム名", "色"]
+        if has_brand:
+            priority_items.append("ブランド名（英語表記とカタカナ表記の両方が一般的なら両方）")
         if info.get('era'):
             priority_items.append("年代")
         priority_items.append("系統・デザインの特徴")
         priority_text = "、".join(priority_items)
-        low_priority_group = "素材" + ("・年代" if info.get('era') else "") + "・系統・デザインの特徴"
+        low_priority_group = ("年代・" if info.get('era') else "") + "系統・デザインの特徴"
+
+        if info.get('style'):
+            keitou_rule = (
+                f"系統・雰囲気のワードは、必ず【商品情報】の「スタイル・雰囲気：{info['style']}」をそのままタイトルに使うこと"
+                "（他の系統語に差し替えたり、言い換えたりしないこと）。"
+            )
+        else:
+            keitou_rule = (
+                "系統・雰囲気を表す単語は、複数思いついても合計1〜2個までに絞ること。使う場合は上の【当店で使っている系統一覧】の"
+                "中から商品に最も近いものを選び、一覧に無い独自の雰囲気ワードを何個も並べないこと。"
+            )
+
+        fill_rule = "文字数が40字に届かない場合は、"
+        if has_brand:
+            fill_rule += "ブランド名を英語表記とカタカナ表記の両方で入れたり、"
+        else:
+            fill_rule += (
+                f"アイテムの上位カテゴリ語（例：ジャケットなら「アウター」）を足したり、"
+                f"今が「{season}」の時期であればその季節感の言葉を補ったり、"
+            )
+        fill_rule += "柄や色の表現をより具体的にするなどして、できるだけ40字に近づけること。極端に短いタイトル（30字未満）は避けること。"
 
         title_instruction = (
             f"（40文字ちょうどになるまで使い切ること。文章にせず、検索されやすい単語を並べる形にする。{priority_text}を、"
-            f"優先度が高い順に並べて40文字に収まるだけ詰め込む。優先度が低い単語（{low_priority_group}）から先に削って調整すること。ただし"
-            "系統・雰囲気を表す単語は、複数思いついても合計1〜2個までに絞ること。使う場合は上の【当店で使っている系統一覧】の"
-            f"中から商品に最も近いものを選び、一覧に無い独自の雰囲気ワードを何個も並べないこと。{era_note}）"
+            f"優先度が高い順に並べて40文字に収まるだけ詰め込む。優先度が低い単語（{low_priority_group}）から先に削って調整すること。"
+            f"素材名（生地感）やサイズ表記はタイトルに含めないこと。{forbidden_note}{keitou_rule}"
+            f"{era_note}{fill_rule}）"
         )
 
         prompt = f"""{context_block}
@@ -303,7 +363,7 @@ def generate_description(info):
 {title_instruction}
 
 【説明文】
-（商品の魅力を3つのポイントに絞り、1ポイント1行、各行の先頭に「✅」を付けて箇条書きにすること。長い文章は読まれないため、1行は20〜30文字程度の短い一文にまとめる。ポイントはデザインの特徴・素材感・着こなし方・季節感などから、その商品に合うものを3つ選ぶ。着こなし方を提案する行は、その商品自体の系統・雰囲気に自然に合うものにすること（特定のコンセプトに無理に寄せない）。色・素材・状態など商品自体の事実は正確に書き、誇張・変更しないこと。素材の感触・品質を断定する表現（上質・肌触り抜群・高級など）は使わないこと。見出し・実寸・注意書きは書かない。行頭の✅以外の記号（✨・☺・☘など）は文中で使わず、ごちゃごちゃしないようにする）
+（商品の魅力を3つのポイントに絞り、1ポイント1行、各行の先頭に「✅」を付けて箇条書きにすること。1行は35〜55文字程度にし、事実を並べるだけでなく読み手に語りかける言葉遣いにする（例：「〜なので、一日中着ていても楽な一枚です」のように、着た人がどう感じられるかまで書く）。ポイントのうち最低1つは、どんな日・場面に合わせやすいか具体的な着用シーンを描写すること。残りはデザインの特徴・素材感・着こなし方・季節感などから、その商品に合うものを選ぶ（1行に複数の要素を組み合わせてもよい）。【商品情報】にある色・柄・系統・年代・ブランドなど、この商品固有の情報を各ポイントに必ず1つ以上絡めること。他のどんな商品にも当てはまるような当たり障りのない一般論（例：「着回しやすい一枚です」「普段使いにおすすめです」のような、具体的な根拠なしで終わる文）は避け、この商品だからこそ言える内容にすること。着こなし方やシーンを提案する行は、その商品自体の系統・雰囲気に自然に合うものにすること（特定のコンセプトに無理に寄せない）。色・素材・状態など商品自体の事実は正確に書き、誇張・変更しないこと。素材の感触・品質を断定する表現（上質・肌触り抜群・高級など）は使わないこと。見出し・実寸・注意書きは書かない。行頭の✅以外の記号（✨・☺・☘など）は文中で使わず、ごちゃごちゃしないようにする）
 
 【ハッシュタグ】
 （5〜8個。メルカリで検索されやすいものを選ぶ）
@@ -350,8 +410,8 @@ def generate_description(info):
 
     if uncertain_style:
         return {"titles": titles, "description": description, "hashtags": hashtags}
-    raw_title = extract_section(text, 'タイトル')
-    final_title = enforce_title_length(strip_free_size_word(raw_title) if free_size else raw_title)
+    raw_title = extract_section(text, 'タイトル').split('\n')[0].strip()
+    final_title = clean_title(raw_title, info, free_size)
     return {"title": final_title, "description": description, "hashtags": hashtags}
 
 @app.route("/")
