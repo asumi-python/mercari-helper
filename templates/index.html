@@ -346,7 +346,8 @@
             <div class="drum-picker" id="drum-waist"></div>
             <div class="drum-unit">cm</div>
           </div>
-          <div class="drum-wrap">
+          <!-- ヒップはボトムス単体のときのみ表示（ワンピースはヒップ不要） -->
+          <div class="drum-wrap" id="drums-hip-wrap">
             <div class="drum-label">ヒップ</div>
             <div class="drum-picker" id="drum-hip"></div>
             <div class="drum-unit">cm</div>
@@ -536,12 +537,14 @@
       const showTop    = ['top_only', 'top_sleeve', 'outer', 'one_piece'].includes(group);
       const showSleeve = ['top_sleeve', 'outer'].includes(group);
       const showBottom = ['bottom', 'one_piece'].includes(group);
-      // ワンピースはtop側に着丈があるのでボトムス側の着丈は非表示
+      // ヒップ・着丈はボトムス単体のときのみ表示（ワンピースはヒップ不要、着丈はtop側を使う）
+      const showHip    = group === 'bottom';
       const showKiBtm  = group === 'bottom';
 
       document.getElementById('drums-top').style.display       = showTop    ? 'flex' : 'none';
       document.getElementById('drums-sleeve').style.display    = showSleeve ? 'flex' : 'none';
       document.getElementById('drums-bottom').style.display    = showBottom ? 'flex' : 'none';
+      document.getElementById('drums-hip-wrap').style.display    = showHip ? 'flex' : 'none';
       document.getElementById('drums-ki-btm-wrap').style.display = showKiBtm ? 'flex' : 'none';
       document.getElementById('measurements-other').style.display = 'none';
     }
@@ -666,6 +669,9 @@
         }
         if (['bottom', 'one_piece'].includes(group)) {
           parts.push(`ウエスト${getDrumValue('drum-waist', 50)}`);
+        }
+        // ヒップ・着丈（ボトムス側）はボトムス単体のときのみ（ワンピースはヒップ不要、着丈はtop側を使う）
+        if (group === 'bottom') {
           parts.push(`ヒップ${getDrumValue('drum-hip', 60)}`);
           parts.push(`着丈${getDrumValue('drum-ki-btm', 30)}`);
         }
